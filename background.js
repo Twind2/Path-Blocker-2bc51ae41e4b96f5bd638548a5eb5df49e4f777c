@@ -97,28 +97,40 @@ async function performChecks(tabId, url, title) {
     const settings = await getSettings();
     const mode = settings.current_mode || 'hybrid';
 
+    // 在“规则”模式下，不进行任何评分
     if (mode === 'hardcore') {
         if (isHardcoreBlocked(url, settings.groups)) {
             redirectToInterception(tabId, url, 'hardcore');
         }
-        return;
+        return; // 直接返回，不执行AI或评分逻辑
     }
 
+    // AI 和 混合 模式
     if (mode === 'ai' || mode === 'hybrid') {
         const domain = new URL(url).hostname;
+        // 检查白名单或通行证
         if (settings.ai_permanent_whitelist?.includes(domain) || (settings.ai_temporary_pass?.[url] && Date.now() < settings.ai_temporary_pass[url])) {
             console.log(`[Path Blocker] 通行证/白名单放行: ${url}`);
-            await updateFocusScore(100);
+            await updateFocusScore(100); // 对于白名单和通行证，给予满分
             return;
         }
 
+        // 在混合模式下，优先检查规则列表
         if (mode === 'hybrid' && isHardcoreBlocked(url, settings.groups)) {
             redirectToInterception(tabId, url, 'hardcore');
             return;
         }
 
+        // 如果意图为空，则不进行AI检查，直接放行并给予一个中性分数
+        if (!settings.ai_intent) {
+            console.log(`[Path Blocker] 场景/意图未设置，AI分析跳过: ${title}`);
+            await updateFocusScore(75); // 给予一个较高的默认分
+            return;
+        }
+
         const aiResult = await isContentAllowedByAI(title, settings);
         
+        // 只有在AI成功返回有效分数时才更新
         if (aiResult.score !== -1) {
             await updateFocusScore(aiResult.score);
         }

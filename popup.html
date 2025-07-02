@@ -25,15 +25,21 @@
                 <div class="mode-switcher">
                     <button class="mode-btn" id="modeHardcore" data-mode="hardcore" title="仅启用永久锁定列表"><i class="fas fa-lock"></i> 规则</button>
                     <button class="mode-btn" id="modeHybrid" data-mode="hybrid" title="优先永久锁定，再由AI守护"><i class="fas fa-wand-magic-sparkles"></i> 混合</button>
-                    <button class="mode-btn" id="modeAi" data-mode="ai" title="仅由AI根据意图守护"><i class="fas fa-brain"></i> AI</button>
+                    <button class="mode-btn" id="modeAi" data-mode="ai" title="仅由AI根据场景守护"><i class="fas fa-brain"></i> AI</button>
                 </div>
 
-                <div class="ai-control-area">
-                    <div class="ai-input-group">
-                        <i class="fas fa-bullseye"></i>
-                        <input type="text" id="aiIntentInput" placeholder="设定当前意图 (如: 学习)">
+                <div class="scene-control-area">
+                    <div class="scene-select-group">
+                        <i class="fas fa-theater-masks"></i>
+                        <select id="sceneSelect"></select>
                     </div>
-                    <button id="setIntentBtn" title="设定AI意图">设定</button>
+                    <div class="scene-actions">
+                        <button id="addSceneBtn" title="新增场景"><i class="fas fa-plus"></i></button>
+                        <button id="editSceneBtn" title="修改当前场景"><i class="fas fa-edit"></i></button>
+                        <button id="deleteSceneBtn" title="删除当前场景"><i class="fas fa-trash-alt"></i></button>
+                        <button id="exportSceneBtn" title="导出当前场景"><i class="fas fa-share-square"></i></button>
+                        <button id="importSceneBtn" title="导入场景"><i class="fas fa-file-import"></i></button>
+                    </div>
                 </div>
             </section>
 
@@ -61,6 +67,29 @@
             </section>
         </div>
     </div>
+
+    <div id="scene-editor-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2 id="modal-title">编辑场景</h2>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="scene-name-input">场景名称:</label>
+                    <input type="text" id="scene-name-input" placeholder="例如：高效工作">
+                </div>
+                <div class="form-group">
+                    <label>具体任务:</label>
+                    <div id="tasks-container">
+                        </div>
+                    <button id="add-task-btn" class="add-task-button"><i class="fas fa-plus-circle"></i> 添加任务</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-scene-btn" class="modal-btn secondary">取消</button>
+                <button id="save-scene-btn" class="modal-btn primary">保存</button>
+            </div>
+        </div>
+    </div>
+
     <script src="popup.js"></script>
 </body>
 </html>

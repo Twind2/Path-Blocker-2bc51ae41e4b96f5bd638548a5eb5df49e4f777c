@@ -52,7 +52,7 @@ header .fa-shield-halved {
     padding: 0 18px 18px 18px;
 }
 
-/* --- 新增: Focus Score Section --- */
+/* --- Focus Score Section --- */
 .focus-score-section {
     background: linear-gradient(135deg, #6e8efb, #a777e3);
     color: white;
@@ -81,7 +81,7 @@ header .fa-shield-halved {
 }
 
 
-/* --- Mode & AI Section --- */
+/* --- Mode & Scene Section --- */
 .mode-section {
     background: #fff;
     padding: 16px;
@@ -123,53 +123,206 @@ header .fa-shield-halved {
     box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 
-.ai-control-area {
+/* --- Scene Control Area --- */
+.scene-control-area {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    gap: 12px;
 }
-.ai-input-group {
+.scene-select-group {
     flex-grow: 1;
     position: relative;
     display: flex;
     align-items: center;
 }
-.ai-input-group .fa-bullseye, .ai-input-group .fa-key {
+.scene-select-group .fa-theater-masks {
     position: absolute;
     left: 14px;
     color: #adb5bd;
     font-size: 14px;
+    z-index: 1;
 }
-#aiIntentInput {
+#sceneSelect {
     box-sizing: border-box;
     width: 100%;
-    padding: 10px 14px 10px 38px;
+    padding: 12px 14px 12px 38px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    transition: all 0.2s;
+    background-color: #f8f9fa;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 18px;
+}
+#sceneSelect:focus {
+    border-color: #007aff;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+#sceneSelect:disabled {
+    background-color: #e9ecef;
+    color: #adb5bd;
+}
+
+.scene-actions {
+    display: flex;
+    gap: 8px;
+}
+.scene-actions button {
+    flex: 1;
+    border: 1px solid #ddd;
+    background-color: #f8f9fa;
+    color: #495057;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.scene-actions button:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+.scene-actions button:disabled {
+    background-color: #e9ecef;
+    color: #adb5bd;
+    cursor: not-allowed;
+}
+
+/* --- 新增：Modal Styles --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+.modal-content {
+    background-color: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.modal-content h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    text-align: center;
+    color: #333;
+}
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.form-group label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #495057;
+}
+.form-group input[type="text"] {
+    padding: 10px 14px;
     border: 1px solid #ddd;
     border-radius: 8px;
     font-size: 14px;
     outline: none;
     transition: all 0.2s;
-    background-color: #f8f9fa;
 }
-#aiIntentInput:focus {
+.form-group input[type="text"]:focus {
     border-color: #007aff;
-    background-color: #fff;
     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
 }
-#setIntentBtn {
+#tasks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+.task-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.task-input-group input {
+    flex-grow: 1;
+}
+.remove-task-btn {
+    background: none;
     border: none;
-    background-color: #007aff;
-    color: white;
-    padding: 0 18px;
+    color: #dc3545;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
+    flex-shrink: 0;
+}
+.add-task-button {
+    width: 100%;
+    padding: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px dashed #adb5bd;
+    background-color: #f8f9fa;
     border-radius: 8px;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.add-task-button:hover {
+    background-color: #e9ecef;
+    border-color: #007aff;
+    color: #007aff;
+}
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+.modal-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.2s;
-    flex-shrink: 0;
+    transition: all 0.2s;
 }
-#setIntentBtn:hover {
+.modal-btn.primary {
+    background-color: #007aff;
+    color: white;
+}
+.modal-btn.primary:hover {
     background-color: #005ce6;
 }
+.modal-btn.secondary {
+    background-color: #e9ecef;
+    color: #495057;
+}
+.modal-btn.secondary:hover {
+    background-color: #dee2e6;
+}
+
 
 /* --- Add Section --- */
 .quick-add-btn {

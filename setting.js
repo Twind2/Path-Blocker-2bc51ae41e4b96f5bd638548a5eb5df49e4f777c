@@ -16,9 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveOpenaiSettingsBtn = document.getElementById('saveOpenaiSettingsBtn');
 
     // 数据管理
-    const exportBtn = document.getElementById('exportBtn');
-    const importBtn = document.getElementById('importBtn');
-    const importFile = document.getElementById('importFile');
     const clearWhitelistBtn = document.getElementById('clearWhitelistBtn');
     const clearPassesBtn = document.getElementById('clearPassesBtn');
 
@@ -126,49 +123,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    // 导出规则
-    const handleExport = async () => {
-        const data = await chrome.storage.local.get('groups');
-        if (!data.groups || data.groups.length === 0) {
-            alert("没有可导出的锁定规则。");
-            return;
-        }
-        const jsonString = JSON.stringify(data.groups, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `path-blocker-rules-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-    // 导入规则
-    const handleImport = (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const importedGroups = JSON.parse(e.target.result);
-                if (Array.isArray(importedGroups)) {
-                    if (confirm("导入将覆盖所有现有规则，确定吗？")) {
-                        chrome.storage.local.set({ groups: importedGroups }, () => {
-                            alert("规则已成功导入！");
-                        });
-                    }
-                } else {
-                    throw new Error("文件格式不正确。");
-                }
-            } catch (error) {
-                alert(`导入失败：${error.message}`);
-            }
-        };
-        reader.readAsText(file);
-    };
-
     // 清空永久白名单
     const handleClearWhitelist = () => {
         if (confirm("确定要清空所有永久信任的网站吗？此操作不可撤销。")) {
@@ -222,10 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fetchModelsBtn.addEventListener('click', handleFetchOpenAIModels);
         saveOpenaiSettingsBtn.addEventListener('click', handleSaveOpenaiSettings);
-
-        exportBtn.addEventListener('click', handleExport);
-        importBtn.addEventListener('click', () => importFile.click());
-        importFile.addEventListener('change', handleImport);
 
         clearWhitelistBtn.addEventListener('click', handleClearWhitelist);
         clearPassesBtn.addEventListener('click', handleClearPasses);

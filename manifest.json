@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Path Blocker (AI Edition)",
-  "version": "2.0",
-  "description": "一个结合了永久锁定和AI守护模式的规则网站拦截器，保护您的专注力。",
+  "version": "2.1",
+  "description": "一个结合了永久锁定和AI场景模式的规则网站拦截器，保护您的专注力。",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -18,7 +18,8 @@
     "permissions": [
     "storage",
     "tabs",
-    "webNavigation"
+    "webNavigation",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "<all_urls>"
