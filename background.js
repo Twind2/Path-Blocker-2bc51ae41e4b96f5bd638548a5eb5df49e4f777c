@@ -4,164 +4,163 @@ import { getSettings, addToPermanentWhitelist, addToTemporaryPass, addToTodayPas
 import { isContentAllowedByAI } from './modules/ai.js';
 import { isHardcoreBlocked } from './modules/utils.js';
 
-// --- 全局变量 ---
-const checkDebouncers = {}; // 存储每个tab的计时器
-const DEBOUNCE_DELAY = 750; // 750毫秒的延迟，确保标题已稳定
-const MAX_SCORE_HISTORY = 100; // 存储最近100条评分
-
-// --- 核心逻辑 ---
-
 /**
- * 这是一个将被“防抖”处理的函数。
- * 它会在延迟后执行，以获取最新的页面信息并进行检查。
- * @param {number} tabId
- */
-const debouncedCheck = async (tabId) => {
-    try {
-        const tab = await chrome.tabs.get(tabId);
-        // 如果标签页已关闭，或URL/标题无效，则中止
-        if (!tab || !tab.url || !tab.url.startsWith('http') || !tab.title) {
-            return;
-        }
-        console.log(`[Path Blocker] 开始分析: "${tab.title}"`);
-        await performChecks(tab.id, tab.url, tab.title);
-    } catch (error) {
-        // 这通常在标签页被关闭时发生
-        console.log(`[Path Blocker] 无法获取标签页 ${tabId} 的信息，可能已被关闭。`);
-    }
-};
-
-/**
- * 触发检查的入口函数。
- * 任何需要进行AI分析的事件都应该调用这个函数。
- * @param {number} tabId
- */
-const triggerCheck = (tabId) => {
-    // 如果该标签页已有计时器在运行，则清除它
-    if (checkDebouncers[tabId]) {
-        clearTimeout(checkDebouncers[tabId]);
-    }
-    // 设置一个新的计时器
-    checkDebouncers[tabId] = setTimeout(() => debouncedCheck(tabId), DEBOUNCE_DELAY);
-};
-
-
-// --- 事件监听器 ---
-
-// 监听器 1: 用于传统页面加载和标题变化（作为备用）
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    // 仅在页面加载完成或标题发生变化时触发
-    if (changeInfo.status === 'complete' || changeInfo.title) {
-        // 避免在拦截页面上触发循环
-        if (tab.url && !tab.url.includes('interception.html')) {
-            triggerCheck(tabId);
-        }
-    }
-});
-
-// 监听器 2: 用于单页应用（SPA）的导航，这是更可靠的方式
-chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-    // 我们只关心顶级框架的导航事件
-    if (details.frameId === 0) {
-        if (details.url && !details.url.includes('interception.html')) {
-            triggerCheck(details.tabId);
-        }
-    }
-});
-
-// 监听器 3: 清理工作，当标签页关闭时，清除对应的计时器
-chrome.tabs.onRemoved.addListener((tabId) => {
-    if (checkDebouncers[tabId]) {
-        clearTimeout(checkDebouncers[tabId]);
-        delete checkDebouncers[tabId];
-    }
-});
-
-
-/**
- * 执行所有拦截检查的核心函数
+ * 这是执行所有拦截检查的核心函数。
  * @param {number} tabId
  * @param {string} url
  * @param {string} title
  */
 async function performChecks(tabId, url, title) {
+    // 检查一次性通行证
     const oneTimePassKey = `oneTimePass_tab_${tabId}`;
     const sessionData = await chrome.storage.session.get(oneTimePassKey);
     const passUrl = sessionData[oneTimePassKey];
 
     if (passUrl && url === passUrl) {
         await chrome.storage.session.remove(oneTimePassKey);
-        return; 
+        return;
     }
 
     const settings = await getSettings();
     const mode = settings.current_mode || 'hybrid';
 
-    // 在“规则”模式下，不进行任何评分
+    console.log(`[Path Blocker] Performing checks for: "${title}" (${url}) in ${mode} mode.`);
+
     if (mode === 'hardcore') {
         if (isHardcoreBlocked(url, settings.groups)) {
             redirectToInterception(tabId, url, 'hardcore');
         }
-        return; // 直接返回，不执行AI或评分逻辑
+        return;
     }
 
-    // AI 和 混合 模式
     if (mode === 'ai' || mode === 'hybrid') {
         const domain = new URL(url).hostname;
-        // 检查白名单或通行证
         if (settings.ai_permanent_whitelist?.includes(domain) || (settings.ai_temporary_pass?.[url] && Date.now() < settings.ai_temporary_pass[url])) {
-            console.log(`[Path Blocker] 通行证/白名单放行: ${url}`);
-            await updateFocusScore(100); // 对于白名单和通行证，给予满分
+            console.log(`[Path Blocker] Pass/Whitelist granted.`);
+            await updateFocusScore(100);
             return;
         }
 
-        // 在混合模式下，优先检查规则列表
         if (mode === 'hybrid' && isHardcoreBlocked(url, settings.groups)) {
+            console.log(`[Path Blocker] Hardcore rule matched.`);
+            await updateFocusScore(0);
             redirectToInterception(tabId, url, 'hardcore');
             return;
         }
 
-        // 如果意图为空，则不进行AI检查，直接放行并给予一个中性分数
         if (!settings.ai_intent) {
-            console.log(`[Path Blocker] 场景/意图未设置，AI分析跳过: ${title}`);
-            await updateFocusScore(75); // 给予一个较高的默认分
+            console.log(`[Path Blocker] AI scene not set, skipping analysis.`);
+            await updateFocusScore(75);
             return;
         }
 
         const aiResult = await isContentAllowedByAI(title, settings);
         
-        // 只有在AI成功返回有效分数时才更新
         if (aiResult.score !== -1) {
             await updateFocusScore(aiResult.score);
         }
 
         if (!aiResult.isAllowed) {
-            console.log(`[Path Blocker] AI 拦截: ${title}`);
-            const reason = `ai&intent=${encodeURIComponent(settings.ai_intent || '')}&title=${encodeURIComponent(title || '未知标题')}`;
+            console.log(`[Path Blocker] AI blocked.`);
+            const reason = `ai&intent=${encodeURIComponent(settings.ai_intent || '')}&title=${encodeURIComponent(title || 'Unknown Title')}`;
             redirectToInterception(tabId, url, reason);
         } else {
-            console.log(`[Path Blocker] AI 放行: ${title}`);
+            console.log(`[Path Blocker] AI allowed.`);
         }
     }
 }
 
+
 /**
- * 更新全局专注度分数
- * @param {number} score 
+ * 这是一个处理程序，它会被临时注册到 tabs.onUpdated 事件。
+ * 它等待标题更新作为页面加载完成的最终信号。
+ * @param {string} expectedUrl - 我们期望页面导航到的URL。
+ * @param {number} tabId
+ * @param {object} changeInfo
+ * @param {object} tab
  */
+const onTitleUpdated = (expectedUrl, tabId, changeInfo, tab) => {
+    // 我们只关心标题更新，并且URL必须是我们期望的那个
+    if (changeInfo.title && tab.url === expectedUrl) {
+        console.log(`[Path Blocker] Title updated for ${expectedUrl}. Finalizing check.`);
+        
+        // 执行检查
+        performChecks(tabId, tab.url, changeInfo.title);
+
+        // **关键**: 检查执行后，立即移除此临时监听器
+        chrome.tabs.onUpdated.removeListener(titleUpdateListeners[tabId]);
+        delete titleUpdateListeners[tabId];
+    }
+};
+
+// 用于存储每个tab的临时监听器
+const titleUpdateListeners = {};
+
+/**
+ * 主导航事件监听器。
+ * 当检测到SPA导航时，它会注册一个临时的onTitleUpdated监听器。
+ * @param {object} details
+ */
+const handleNavigation = (details) => {
+    // 仅处理顶级框架的导航，并排除拦截页本身
+    if (details.frameId !== 0 || details.url.includes('interception.html')) {
+        return;
+    }
+
+    const tabId = details.tabId;
+    const expectedUrl = details.url;
+    
+    console.log(`[Path Blocker] Navigation detected for Tab ${tabId} to ${expectedUrl}. Setting up title listener.`);
+
+    // 如果这个tab已经有一个旧的监听器在等待，先移除它
+    if (titleUpdateListeners[tabId]) {
+        chrome.tabs.onUpdated.removeListener(titleUpdateListeners[tabId]);
+    }
+
+    // 创建一个新的、绑定了正确URL的监听器函数
+    const newListener = (updatedTabId, changeInfo, tab) => {
+        // 确保事件来自正确的标签页
+        if (updatedTabId === tabId) {
+            onTitleUpdated(expectedUrl, updatedTabId, changeInfo, tab);
+        }
+    };
+    
+    // 存储并注册这个新的临时监听器
+    titleUpdateListeners[tabId] = newListener;
+    chrome.tabs.onUpdated.addListener(newListener);
+};
+
+// --- 绑定主事件监听器 ---
+// onCommitted 用于新页面加载和刷新
+chrome.webNavigation.onCommitted.addListener(handleNavigation);
+// onHistoryStateUpdated 用于SPA内部导航
+chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
+
+// --- 清理工作 ---
+// 当标签页关闭时，清除所有相关的监听器和数据
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (titleUpdateListeners[tabId]) {
+        chrome.tabs.onUpdated.removeListener(titleUpdateListeners[tabId]);
+        delete titleUpdateListeners[tabId];
+    }
+});
+
+
+// ... (其余辅助函数: updateFocusScore, onMessage, redirectToInterception 保持不变) ...
 async function updateFocusScore(score) {
     const data = await chrome.storage.local.get('focus_scores_history');
     let scores = data.focus_scores_history || [];
     scores.push(score);
-    if (scores.length > MAX_SCORE_HISTORY) scores.shift();
+    if (scores.length > 100) scores.shift(); 
     await chrome.storage.local.set({ 'focus_scores_history': scores });
 }
 
-// 消息监听器: 处理来自拦截页面或弹出窗口的通信
 chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     if (request.action === 'go_back' && request.tabId) {
         chrome.tabs.goBack(request.tabId, () => {
-            if (chrome.runtime.lastError) chrome.tabs.remove(request.tabId);
+            if (chrome.runtime.lastError) {
+                chrome.tabs.remove(request.tabId);
+            }
         });
         return;
     }
@@ -183,12 +182,6 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     }
 });
 
-/**
- * 重定向到拦截页面的辅助函数
- * @param {number} tabId
- * @param {string} originalUrl
- * @param {string} reason
- */
 function redirectToInterception(tabId, originalUrl, reason) {
     const interceptionUrl = chrome.runtime.getURL('interception.html');
     const targetUrl = `${interceptionUrl}?url=${encodeURIComponent(originalUrl)}&reason=${reason}&tabId=${tabId}`;
